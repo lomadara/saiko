@@ -76,41 +76,35 @@ class SaikoAnimeDownloader(AnimeDownloaderInterface):
             anime_hash = episodes_url.split('/')
             anime_hash = anime_hash[len(anime_hash) - 1]
             
-            if 'cloud' in episodes_url:
-                self.download_episode_from_cloud_saiko(
-                    anime_hash,
-                    self.anime_title
-                    )
-            else:
-                items_informations = self.get_items_informations(anime_hash, '')
-                anime_id = items_informations.get('link').get('id')
-                items = items_informations.get('folderChildren').get('data')
-                for item in items:
-                    if item.get('type') == 'folder' and '1080p' in item.get('name'):
-                        page = 1
-                        while page: 
-                            episodes_informations = self.get_items_informations(
-                                anime_hash + ':' + item.get('hash'),
-                                '&page={}'.format(page)
-                                )
-                                                               
-                            episodes = episodes_informations.get('folderChildren').get('data')
-                            for episode in episodes:
-                                maped_episodes_information = self.map_episodes_informations(
-                                    anime_id,
-                                    episode,
-                                    maped_episodes_information,
-                                    season
-                                    )
-                                
-                            page = episodes_informations.get('folderChildren').get('next_page')  
-                    else:
-                        maped_episodes_information = self.map_episodes_informations(
-                            anime_id,
-                            item,
-                            maped_episodes_information,
-                            season
+            items_informations = self.get_items_informations(anime_hash, '')
+            anime_id = items_informations.get('link').get('id')
+            items = items_informations.get('folderChildren').get('data')
+            for item in items:
+                if item.get('type') == 'folder' and '1080p' in item.get('name'):
+                    page = 1
+                    while page: 
+                        episodes_informations = self.get_items_informations(
+                            anime_hash + ':' + item.get('hash'),
+                            '&page={}'.format(page)
                             )
+                                                            
+                        episodes = episodes_informations.get('folderChildren').get('data')
+                        for episode in episodes:
+                            maped_episodes_information = self.map_episodes_informations(
+                                anime_id,
+                                episode,
+                                maped_episodes_information,
+                                season
+                                )
+                            
+                        page = episodes_informations.get('folderChildren').get('next_page')  
+                else:
+                    maped_episodes_information = self.map_episodes_informations(
+                        anime_id,
+                        item,
+                        maped_episodes_information,
+                        season
+                        )
                     
         return maped_episodes_information
     
@@ -151,26 +145,3 @@ class SaikoAnimeDownloader(AnimeDownloaderInterface):
             
         else:
             raise AlreadyExistsError("{} already exists".format(episode_information.get('episode_name')))
-        
-    def download_episode_from_cloud_saiko(self, hash, anime_title):
-        response = requests.get('https://cloud.saikoanimes.net/api/sharing/{}'.format(hash)).json()   
-        item_id = response['data']['attributes']['item_id']
-        response = requests.get('https://cloud.saikoanimes.net/api/sharing/folders/{}/{}?sort=created_at&direction=DESC&page=1'.format(item_id, hash)).json()
-        for episode in response['data']:
-            episode_name = episode['data']['attributes']['name']
-            file_url = episode['data']['attributes']['file_url']
-
-            if not os.path.exists("./animes/{}/{}".format(anime_title, episode_name)):
-                video_response = requests.get(file_url, stream=True)
-                print("\033[1;33;40m {}".format(episode_name))
-                total_size_in_bytes= int(video_response.headers.get('content-length', 0))
-                progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
-                with open("./animes/{}/{}".format(anime_title, episode_name), 'wb') as file:
-                    for data in video_response.iter_content(constants.block_size):
-                        progress_bar.update(len(data))
-                        file.write(data)
-
-                progress_bar.close()
-                
-            else:
-                raise AlreadyExistsError("{} already exists".format(episode_name))
